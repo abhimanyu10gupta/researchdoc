@@ -1,0 +1,40 @@
+{% extends "research/base.html" %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1>{{ table.title }}</h1>
+  <a href="{% url 'comparison_row_create' table.pk %}" class="btn btn-primary">Add row</a>
+</div>
+
+<table class="table table-bordered bg-white shadow-sm">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Criteria</th>
+      <th>Score</th>
+      <th>Notes</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+      <tr>
+        <td>{{ row.name }}</td>
+        <td>{{ row.criteria }}</td>
+        <td>{{ row.score }}</td>
+        <td>{{ row.notes }}</td>
+        <td>
+          <a href="{% url 'comparison_row_edit' row.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>
+        </td>
+      </tr>
+    {% empty %}
+      <tr>
+        <td colspan="5">No rows yet.</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<a href="{% url 'project_detail' table.project.pk %}" class="btn btn-outline-secondary">Back to project</a>
+
+{% endblock %}

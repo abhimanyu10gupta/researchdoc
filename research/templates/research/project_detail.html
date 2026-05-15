@@ -1,0 +1,73 @@
+{% extends "research/base.html" %}
+{% block content %}
+
+<div class="mb-4">
+  <h1 class="fw-bold">{{ project.title }}</h1>
+  <p class="text-muted">{{ project.description }}</p>
+</div>
+
+<div class="d-flex gap-2 mb-4 flex-wrap">
+  <a href="{% url 'resource_create' project.pk %}" class="btn btn-primary">Add resource</a>
+  <a href="{% url 'summary_create' project.pk %}" class="btn btn-outline-primary">Create summary</a>
+  <a href="{% url 'comparison_table_create' project.pk %}" class="btn btn-outline-primary">Create comparison table</a>
+</div>
+
+<h3>Resources</h3>
+<div class="row mb-4">
+  {% for resource in resources %}
+    <div class="col-md-4 mb-3">
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <h5>{{ resource.title }}</h5>
+          <p class="badge bg-secondary">{{ resource.resource_type }}</p>
+          <p>{{ resource.notes|truncatewords:20 }}</p>
+
+          {% if resource.file %}
+            <p><a href="{{ resource.file.url }}">View file</a></p>
+          {% endif %}
+
+          {% if resource.url %}
+            <p><a href="{{ resource.url }}" target="_blank">Open link</a></p>
+          {% endif %}
+
+          <a href="{% url 'generate_ai_summary' resource.pk %}" class="btn btn-sm btn-success">Generate AI summary</a>
+          <a href="{% url 'resource_edit' resource.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>
+          <a href="{% url 'resource_archive' resource.pk %}" class="btn btn-sm btn-outline-danger">Archive</a>
+        </div>
+      </div>
+    </div>
+  {% empty %}
+    <p class="text-muted">No resources yet.</p>
+  {% endfor %}
+</div>
+
+<h3>Summaries</h3>
+<div class="mb-4">
+  {% for summary in summaries %}
+    <div class="card shadow-sm mb-3">
+      <div class="card-body">
+        <h5>{{ summary.title }}</h5>
+        {% if summary.ai_generated %}
+          <span class="badge bg-success">AI generated</span>
+        {% endif %}
+        <p class="mt-2">{{ summary.summary_text|linebreaks }}</p>
+        <strong>Citations:</strong>
+        <p>{{ summary.citations|linebreaks }}</p>
+        <a href="{% url 'summary_edit' summary.pk %}" class="btn btn-sm btn-outline-secondary">Edit summary/citation</a>
+      </div>
+    </div>
+  {% empty %}
+    <p class="text-muted">No summaries yet.</p>
+  {% endfor %}
+</div>
+
+<h3>Comparison Tables</h3>
+<div>
+  {% for table in tables %}
+    <a href="{% url 'comparison_table_detail' table.pk %}" class="btn btn-outline-dark mb-2">{{ table.title }}</a>
+  {% empty %}
+    <p class="text-muted">No comparison tables yet.</p>
+  {% endfor %}
+</div>
+
+{% endblock %}

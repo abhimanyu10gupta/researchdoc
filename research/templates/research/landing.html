@@ -1,0 +1,34 @@
+{% extends "research/base.html" %}
+{% block content %}
+
+<section class="py-5">
+  <div class="row align-items-center">
+    <div class="col-md-7">
+      <h1 class="display-4 fw-bold">Research management for modern students.</h1>
+      <p class="lead text-muted">
+        Upload research papers, organise projects, create summaries with citations,
+        compare products or services, and search across your research workspace.
+      </p>
+      <a href="{% url 'register' %}" class="btn btn-primary btn-lg">Get started</a>
+      <a href="{% url 'login' %}" class="btn btn-outline-secondary btn-lg">Login</a>
+    </div>
+
+    <div class="col-md-5">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h5 class="fw-bold">Core Features</h5>
+          <ul class="mb-0">
+            <li>Research project management</li>
+            <li>Paper and link uploads</li>
+            <li>AI-assisted summaries</li>
+            <li>Editable citation notes</li>
+            <li>Comparison tables</li>
+            <li>Full workspace search</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

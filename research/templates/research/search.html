@@ -1,0 +1,43 @@
+{% extends "research/base.html" %}
+{% block content %}
+
+<h1 class="fw-bold mb-3">Search</h1>
+
+<form method="get" class="mb-4">
+  <div class="input-group">
+    <input name="q" value="{{ query }}" class="form-control" placeholder="Search projects, resources, summaries and comparison notes">
+    <button class="btn btn-primary">Search</button>
+  </div>
+</form>
+
+{% if query %}
+  <h4>Projects</h4>
+  {% for project in projects %}
+    <p><a href="{% url 'project_detail' project.pk %}">{{ project.title }}</a></p>
+  {% empty %}
+    <p class="text-muted">No matching projects.</p>
+  {% endfor %}
+
+  <h4>Resources</h4>
+  {% for resource in resources %}
+    <p><a href="{% url 'project_detail' resource.project.pk %}">{{ resource.title }}</a></p>
+  {% empty %}
+    <p class="text-muted">No matching resources.</p>
+  {% endfor %}
+
+  <h4>Summaries</h4>
+  {% for summary in summaries %}
+    <p><a href="{% url 'project_detail' summary.project.pk %}">{{ summary.title }}</a></p>
+  {% empty %}
+    <p class="text-muted">No matching summaries.</p>
+  {% endfor %}
+
+  <h4>Comparison Rows</h4>
+  {% for row in rows %}
+    <p><a href="{% url 'comparison_table_detail' row.table.pk %}">{{ row.name }}</a> — {{ row.criteria }}</p>
+  {% empty %}
+    <p class="text-muted">No matching comparison rows.</p>
+  {% endfor %}
+{% endif %}
+
+{% endblock %}
