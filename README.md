@@ -2,6 +2,17 @@
 
 ResearchDoc is a university Web Information Systems project: a Django + Bootstrap 5 app for managing research projects, resources (PDF/link/note), summaries with structured citations, comparison tables, and search — with an optional GenAI summary generator.
 
+Deployment URL:
+https://researchdoc-p665.onrender.com/
+
+Admin Login:
+username: admin
+password: AdminPass123!
+
+Demo User:
+username: demo_user
+password: DemoPass123!
+
 ## Setup (uv)
 
 Create a virtual environment and install dependencies:
