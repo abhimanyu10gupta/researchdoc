@@ -20,9 +20,9 @@
   <a href="{% url 'summary_create' project.pk %}" class="btn btn-outline-primary">Create summary</a>
   <a href="{% url 'comparison_table_create' project.pk %}" class="btn btn-outline-primary">Create comparison table</a>
   {% if resources|length >= 2 %}
-    <form method="post" action="{% url 'generate_ai_comparison_table' project.pk %}" class="d-inline">
+    <form method="post" action="{% url 'generate_ai_comparison_table' project.pk %}" class="d-inline ai-action-form">
       {% csrf_token %}
-      <button class="btn btn-success">AI Generate Comparison Table</button>
+      <button type="submit" class="btn btn-success" data-loading-text="Generating AI comparison…">AI Generate Comparison Table</button>
     </form>
   {% endif %}
 </div>
@@ -47,9 +47,9 @@
             <p><a href="{{ resource.url }}" target="_blank">Open link</a></p>
           {% endif %}
 
-          <form method="post" action="{% url 'generate_ai_summary' resource.pk %}" class="d-inline">
+          <form method="post" action="{% url 'generate_ai_summary' resource.pk %}" class="d-inline ai-action-form">
             {% csrf_token %}
-            <button class="btn btn-sm btn-success">Generate AI summary</button>
+            <button type="submit" class="btn btn-sm btn-success" data-loading-text="Generating AI summary…">Generate AI summary</button>
           </form>
           <a href="{% url 'resource_edit' resource.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>
           <a href="{% url 'resource_archive' resource.pk %}" class="btn btn-sm btn-outline-danger">Archive</a>
