@@ -10,34 +10,85 @@
   </div>
 </form>
 
+{% if not query %}
+  <div class="card shadow-sm border-0">
+    <div class="card-body">
+      <h5 class="fw-bold mb-1">Search your workspace</h5>
+      <p class="text-muted mb-0">Try keywords from project titles, resource notes, extracted PDF text, summary content, or comparison criteria.</p>
+    </div>
+  </div>
+{% endif %}
+
 {% if query %}
-  <h4>Projects</h4>
-  {% for project in projects %}
-    <p><a href="{% url 'project_detail' project.pk %}">{{ project.title }}</a></p>
-  {% empty %}
-    <p class="text-muted">No matching projects.</p>
-  {% endfor %}
+  <div class="mb-4">
+    <div class="text-muted">Results for <span class="fw-semibold">“{{ query }}”</span></div>
+  </div>
 
-  <h4>Resources</h4>
-  {% for resource in resources %}
-    <p><a href="{% url 'project_detail' resource.project.pk %}">{{ resource.title }}</a></p>
-  {% empty %}
-    <p class="text-muted">No matching resources.</p>
-  {% endfor %}
+  <div class="row g-3">
+    <div class="col-lg-6">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-body">
+          <h4 class="h5 fw-bold">Projects</h4>
+          {% for project in projects %}
+            <div class="mb-2">
+              <a class="fw-semibold text-decoration-none" href="{% url 'project_detail' project.pk %}">{{ project.title }}</a>
+              <div class="text-muted small">{{ project.description|truncatewords:18 }}</div>
+            </div>
+          {% empty %}
+            <div class="text-muted">No matching projects.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
 
-  <h4>Summaries</h4>
-  {% for summary in summaries %}
-    <p><a href="{% url 'project_detail' summary.project.pk %}">{{ summary.title }}</a></p>
-  {% empty %}
-    <p class="text-muted">No matching summaries.</p>
-  {% endfor %}
+    <div class="col-lg-6">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-body">
+          <h4 class="h5 fw-bold">Resources</h4>
+          {% for resource in resources %}
+            <div class="mb-2">
+              <a class="fw-semibold text-decoration-none" href="{% url 'project_detail' resource.project.pk %}">{{ resource.title }}</a>
+              <div class="text-muted small">{{ resource.get_resource_type_display }} • {{ resource.project.title }}</div>
+            </div>
+          {% empty %}
+            <div class="text-muted">No matching resources.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
 
-  <h4>Comparison Rows</h4>
-  {% for row in rows %}
-    <p><a href="{% url 'comparison_table_detail' row.table.pk %}">{{ row.name }}</a> — {{ row.criteria }}</p>
-  {% empty %}
-    <p class="text-muted">No matching comparison rows.</p>
-  {% endfor %}
+    <div class="col-lg-6">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-body">
+          <h4 class="h5 fw-bold">Summaries</h4>
+          {% for summary in summaries %}
+            <div class="mb-2">
+              <a class="fw-semibold text-decoration-none" href="{% url 'project_detail' summary.project.pk %}">{{ summary.title }}</a>
+              <div class="text-muted small">{{ summary.project.title }}{% if summary.ai_generated %} • AI generated{% endif %}</div>
+            </div>
+          {% empty %}
+            <div class="text-muted">No matching summaries.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-body">
+          <h4 class="h5 fw-bold">Comparison rows</h4>
+          {% for row in rows %}
+            <div class="mb-2">
+              <a class="fw-semibold text-decoration-none" href="{% url 'comparison_table_detail' row.table.pk %}">{{ row.name }}</a>
+              <div class="text-muted small">{{ row.criteria }}</div>
+            </div>
+          {% empty %}
+            <div class="text-muted">No matching comparison rows.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
 {% endif %}
 
 {% endblock %}

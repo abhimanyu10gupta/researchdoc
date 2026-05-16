@@ -1,0 +1,25 @@
+{% extends "research/base.html" %}
+{% block content %}
+
+<div class="row justify-content-center">
+  <div class="col-md-7 col-lg-6">
+    <div class="card shadow-sm border-0">
+      <div class="card-body p-4">
+        <h1 class="h4 fw-bold mb-2">{{ title }}</h1>
+        <p class="text-muted mb-4">
+          You’re about to archive <span class="fw-semibold">{{ object_name }}</span>.
+          Archived items are hidden from your dashboard and search, but can still exist in the database for audit/demo purposes.
+        </p>
+
+        <form method="post" class="d-flex gap-2 flex-wrap">
+          {% csrf_token %}
+          <button class="btn btn-danger">Archive</button>
+          <a class="btn btn-outline-secondary" href="{{ cancel_url }}">Cancel</a>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+

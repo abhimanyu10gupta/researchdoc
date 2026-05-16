@@ -2,8 +2,15 @@
 {% block content %}
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-  <h1>{{ table.title }}</h1>
-  <a href="{% url 'comparison_row_create' table.pk %}" class="btn btn-primary">Add row</a>
+  <div>
+    <h1 class="fw-bold mb-1">{{ table.title }}</h1>
+    <div class="text-muted">Updated {{ table.updated_at|date:"M j, Y" }}</div>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="{% url 'comparison_row_create' table.pk %}" class="btn btn-primary">Add row</a>
+    <a href="{% url 'comparison_table_edit' table.pk %}" class="btn btn-outline-secondary">Edit</a>
+    <a href="{% url 'comparison_table_archive' table.pk %}" class="btn btn-outline-danger">Archive</a>
+  </div>
 </div>
 
 <table class="table table-bordered bg-white shadow-sm">
@@ -25,6 +32,7 @@
         <td>{{ row.notes }}</td>
         <td>
           <a href="{% url 'comparison_row_edit' row.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>
+          <a href="{% url 'comparison_row_archive' row.pk %}" class="btn btn-sm btn-outline-danger">Archive</a>
         </td>
       </tr>
     {% empty %}

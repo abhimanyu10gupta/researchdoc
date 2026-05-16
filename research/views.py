@@ -2,9 +2,12 @@ import os
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth import login
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required
 from django.db.models import Q
+from django.urls import reverse
+from django.views.decorators.http import require_http_methods
 from pypdf import PdfReader
+from openai import OpenAI
 
 from .models import (
     UserProfile,
@@ -45,8 +48,16 @@ def register(request):
 
 @login_required
 def dashboard(request):
-    projects = ResearchProject.objects.filter(owner=request.user, is_archived=False)
-    return render(request, "research/dashboard.html", {"projects": projects})
+    projects = ResearchProject.objects.filter(owner=request.user, is_archived=False).order_by("-updated_at")
+
+    stats = {
+        "projects": projects.count(),
+        "resources": Resource.objects.filter(project__owner=request.user, is_archived=False).count(),
+        "summaries": ResearchSummary.objects.filter(project__owner=request.user, is_archived=False).count(),
+        "tables": ComparisonTable.objects.filter(project__owner=request.user, is_archived=False).count(),
+    }
+
+    return render(request, "research/dashboard.html", {"projects": projects, "stats": stats})
 
 
 @login_required
@@ -65,8 +76,8 @@ def project_create(request):
 def project_detail(request, pk):
     project = get_object_or_404(ResearchProject, pk=pk, owner=request.user, is_archived=False)
     resources = Resource.objects.filter(project=project, is_archived=False)
-    summaries = ResearchSummary.objects.filter(project=project)
-    tables = ComparisonTable.objects.filter(project=project)
+    summaries = ResearchSummary.objects.filter(project=project, is_archived=False).order_by("-updated_at")
+    tables = ComparisonTable.objects.filter(project=project, is_archived=False).order_by("-updated_at")
 
     return render(
         request,
@@ -82,7 +93,7 @@ def project_detail(request, pk):
 
 @login_required
 def project_edit(request, pk):
-    project = get_object_or_404(ResearchProject, pk=pk, owner=request.user)
+    project = get_object_or_404(ResearchProject, pk=pk, owner=request.user, is_archived=False)
     form = ResearchProjectForm(request.POST or None, instance=project)
 
     if request.method == "POST" and form.is_valid():
@@ -94,12 +105,19 @@ def project_edit(request, pk):
 
 
 @login_required
+@require_http_methods(["GET", "POST"])
 def project_archive(request, pk):
-    project = get_object_or_404(ResearchProject, pk=pk, owner=request.user)
-    project.is_archived = True
-    project.save()
-    messages.success(request, "Project archived.")
-    return redirect("dashboard")
+    project = get_object_or_404(ResearchProject, pk=pk, owner=request.user, is_archived=False)
+    if request.method == "POST":
+        project.is_archived = True
+        project.save(update_fields=["is_archived", "updated_at"])
+        messages.success(request, "Project archived.")
+        return redirect("dashboard")
+    return render(
+        request,
+        "research/confirm_archive.html",
+        {"title": "Archive project", "object_name": project.title, "cancel_url": reverse("project_detail", kwargs={"pk": project.pk})},
+    )
 
 
 def extract_pdf_text(file_path):
@@ -115,7 +133,7 @@ def extract_pdf_text(file_path):
 
 @login_required
 def resource_create(request, project_pk):
-    project = get_object_or_404(ResearchProject, pk=project_pk, owner=request.user)
+    project = get_object_or_404(ResearchProject, pk=project_pk, owner=request.user, is_archived=False)
     form = ResourceForm(request.POST or None, request.FILES or None)
 
     if request.method == "POST" and form.is_valid():
@@ -123,7 +141,7 @@ def resource_create(request, project_pk):
         resource.project = project
         resource.save()
 
-        if resource.file:
+        if resource.file and resource.resource_type == "pdf":
             resource.extracted_text = extract_pdf_text(resource.file.path)
             resource.save()
 
@@ -135,12 +153,12 @@ def resource_create(request, project_pk):
 
 @login_required
 def resource_edit(request, pk):
-    resource = get_object_or_404(Resource, pk=pk, project__owner=request.user)
+    resource = get_object_or_404(Resource, pk=pk, project__owner=request.user, is_archived=False, project__is_archived=False)
     form = ResourceForm(request.POST or None, request.FILES or None, instance=resource)
 
     if request.method == "POST" and form.is_valid():
         resource = form.save()
-        if resource.file:
+        if resource.file and resource.resource_type == "pdf":
             resource.extracted_text = extract_pdf_text(resource.file.path)
             resource.save()
         messages.success(request, "Resource updated.")
@@ -150,20 +168,27 @@ def resource_edit(request, pk):
 
 
 @login_required
+@require_http_methods(["GET", "POST"])
 def resource_archive(request, pk):
-    resource = get_object_or_404(Resource, pk=pk, project__owner=request.user)
-    project_pk = resource.project.pk
-    resource.is_archived = True
-    resource.save()
-    messages.success(request, "Resource archived.")
-    return redirect("project_detail", pk=project_pk)
+    resource = get_object_or_404(Resource, pk=pk, project__owner=request.user, is_archived=False)
+    if request.method == "POST":
+        project_pk = resource.project.pk
+        resource.is_archived = True
+        resource.save(update_fields=["is_archived", "updated_at"])
+        messages.success(request, "Resource archived.")
+        return redirect("project_detail", pk=project_pk)
+    return render(
+        request,
+        "research/confirm_archive.html",
+        {"title": "Archive resource", "object_name": resource.title, "cancel_url": reverse("project_detail", kwargs={"pk": resource.project.pk})},
+    )
 
 
 @login_required
 def summary_create(request, project_pk):
-    project = get_object_or_404(ResearchProject, pk=project_pk, owner=request.user)
+    project = get_object_or_404(ResearchProject, pk=project_pk, owner=request.user, is_archived=False)
     form = ResearchSummaryForm(request.POST or None)
-    form.fields["resource"].queryset = Resource.objects.filter(project=project)
+    form.fields["resource"].queryset = Resource.objects.filter(project=project, is_archived=False)
 
     if request.method == "POST" and form.is_valid():
         summary = form.save(commit=False)
@@ -177,9 +202,9 @@ def summary_create(request, project_pk):
 
 @login_required
 def summary_edit(request, pk):
-    summary = get_object_or_404(ResearchSummary, pk=pk, project__owner=request.user)
+    summary = get_object_or_404(ResearchSummary, pk=pk, project__owner=request.user, is_archived=False)
     form = ResearchSummaryForm(request.POST or None, instance=summary)
-    form.fields["resource"].queryset = Resource.objects.filter(project=summary.project)
+    form.fields["resource"].queryset = Resource.objects.filter(project=summary.project, is_archived=False)
 
     if request.method == "POST" and form.is_valid():
         form.save()
@@ -190,42 +215,37 @@ def summary_edit(request, pk):
 
 
 @login_required
+@require_http_methods(["POST"])
 def generate_ai_summary(request, resource_pk):
-    resource = get_object_or_404(Resource, pk=resource_pk, project__owner=request.user)
+    resource = get_object_or_404(
+        Resource,
+        pk=resource_pk,
+        project__owner=request.user,
+        is_archived=False,
+        project__is_archived=False,
+    )
 
-    source_text = resource.extracted_text or resource.notes or resource.url
+    source_text = (resource.extracted_text or resource.notes or resource.url or "").strip()
+    source_text = source_text[:8000]
 
-    generated_text = f"""
-AI Generated Research Summary
+    generated_text = generate_ai_summary_text(resource_title=resource.title, source_text=source_text)
 
-Resource: {resource.title}
-
-Plain English Summary:
-This resource discusses the topic described in the uploaded paper, link, or notes. It has been added to the research project as supporting material.
-
-Key Findings:
-- The resource appears relevant to the research project.
-- The content should be reviewed and compared with other sources.
-- The user should verify all claims before using them academically.
-
-Limitations:
-- AI-generated summaries may miss context.
-- Citations should be manually checked against the original source.
-
-Citation Suggestions:
-- Cite the uploaded paper or link directly.
-- Include page numbers where possible.
-"""
-
-    if source_text:
-        generated_text += f"\n\nSource Extract Used:\n{source_text[:1500]}"
+    citation_source = ""
+    if resource.url:
+        citation_source = resource.url
+    elif resource.file:
+        citation_source = resource.file.name
+    else:
+        citation_source = resource.title
 
     ResearchSummary.objects.create(
         project=resource.project,
         resource=resource,
         title=f"AI Summary: {resource.title}",
         summary_text=generated_text,
-        citations="AI-generated draft. User must verify citation details.",
+        citation_source=citation_source,
+        citation_page="",
+        citation_quote="",
         ai_generated=True,
     )
 
@@ -233,9 +253,105 @@ Citation Suggestions:
     return redirect("project_detail", pk=resource.project.pk)
 
 
+def generate_ai_summary_text(*, resource_title: str, source_text: str) -> str:
+    warning = "AI-generated content must be reviewed and verified before academic use."
+
+    if not source_text:
+        source_text = "No extracted text was available. Use your own notes and the original source to verify details."
+
+    openai_key = os.getenv("OPENAI_API_KEY", "").strip()
+    openrouter_key = os.getenv("OPENROUTER_API_KEY", "").strip()
+    model = os.getenv("AI_MODEL", "").strip()
+
+    if openai_key:
+        client = OpenAI(api_key=openai_key)
+        model = model or "gpt-4o-mini"
+    elif openrouter_key:
+        client = OpenAI(api_key=openrouter_key, base_url="https://openrouter.ai/api/v1")
+        model = model or "openai/gpt-4o-mini"
+    else:
+        return f"""## AI Research Summary (Simulated)
+
+**Warning:** {warning}
+
+### Plain English summary
+This is a simulated AI summary (no API key configured). It gives a safe, demo-friendly structure you can replace with a real model output later.
+
+### Key findings
+- The resource appears relevant to your project, but claims must be verified in the original source.
+- Pull out 2–3 direct quotes and record exact page numbers for academic use.
+
+### Limitations
+- No model was called, so this summary may be generic.
+- PDF extraction may be incomplete (especially for scanned PDFs).
+
+### Suggested citation points
+- Cite the resource title/URL and add page numbers for any quoted claims.
+- Add a short quote in your citation fields to support key findings.
+
+### Responsible AI note
+{warning}
+"""
+
+    prompt = f"""You are an assistant helping a university student write a research summary.
+Return a structured summary with the following exact sections:
+
+1) Plain English summary (3-6 bullet points)
+2) Key findings (5-8 bullet points)
+3) Limitations (3-6 bullet points)
+4) Suggested citation points (3-6 bullet points, include what to cite and where to look for page numbers)
+5) Responsible AI note (1-2 sentences, include the warning: "{warning}")
+
+Be careful: do not invent page numbers, quotes, or sources. If details are missing, say what the user should verify.
+
+Resource title: {resource_title}
+
+Source text (may be partial):
+{source_text}
+"""
+
+    try:
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": "You write accurate, cautious academic summaries."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.2,
+        )
+        content = (resp.choices[0].message.content or "").strip()
+        if not content:
+            raise ValueError("Empty AI response")
+        return content
+    except Exception:
+        return f"""## AI Research Summary (Fallback)
+
+**Warning:** {warning}
+
+### Plain English summary
+- The AI service was unavailable or misconfigured, so this is a safe fallback.
+- Use the resource itself to confirm all claims before academic use.
+
+### Key findings
+- Identify the main claim(s) and supporting evidence in the source.
+- Extract 1–2 direct quotes and record page numbers.
+
+### Limitations
+- AI generation failed; this output is generic.
+- PDF extraction may be incomplete.
+
+### Suggested citation points
+- Cite the original paper/link directly and add page numbers where you quote it.
+- Record a short quote in `citation_quote`.
+
+### Responsible AI note
+{warning}
+"""
+
+
 @login_required
 def comparison_table_create(request, project_pk):
-    project = get_object_or_404(ResearchProject, pk=project_pk, owner=request.user)
+    project = get_object_or_404(ResearchProject, pk=project_pk, owner=request.user, is_archived=False)
     form = ComparisonTableForm(request.POST or None)
 
     if request.method == "POST" and form.is_valid():
@@ -250,14 +366,14 @@ def comparison_table_create(request, project_pk):
 
 @login_required
 def comparison_table_detail(request, pk):
-    table = get_object_or_404(ComparisonTable, pk=pk, project__owner=request.user)
-    rows = ComparisonRow.objects.filter(table=table)
+    table = get_object_or_404(ComparisonTable, pk=pk, project__owner=request.user, is_archived=False, project__is_archived=False)
+    rows = ComparisonRow.objects.filter(table=table, is_archived=False).order_by("-updated_at")
     return render(request, "research/comparison_detail.html", {"table": table, "rows": rows})
 
 
 @login_required
 def comparison_row_create(request, table_pk):
-    table = get_object_or_404(ComparisonTable, pk=table_pk, project__owner=request.user)
+    table = get_object_or_404(ComparisonTable, pk=table_pk, project__owner=request.user, is_archived=False)
     form = ComparisonRowForm(request.POST or None)
 
     if request.method == "POST" and form.is_valid():
@@ -272,7 +388,7 @@ def comparison_row_create(request, table_pk):
 
 @login_required
 def comparison_row_edit(request, pk):
-    row = get_object_or_404(ComparisonRow, pk=pk, table__project__owner=request.user)
+    row = get_object_or_404(ComparisonRow, pk=pk, table__project__owner=request.user, is_archived=False, table__is_archived=False)
     form = ComparisonRowForm(request.POST or None, instance=row)
 
     if request.method == "POST" and form.is_valid():
@@ -282,6 +398,64 @@ def comparison_row_edit(request, pk):
 
     return render(request, "research/form.html", {"form": form, "title": "Edit comparison row"})
 
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def summary_archive(request, pk):
+    summary = get_object_or_404(ResearchSummary, pk=pk, project__owner=request.user, is_archived=False)
+    if request.method == "POST":
+        summary.is_archived = True
+        summary.save(update_fields=["is_archived", "updated_at"])
+        messages.success(request, "Summary archived.")
+        return redirect("project_detail", pk=summary.project.pk)
+    return render(
+        request,
+        "research/confirm_archive.html",
+        {"title": "Archive summary", "object_name": summary.title, "cancel_url": reverse("project_detail", kwargs={"pk": summary.project.pk})},
+    )
+
+
+@login_required
+def comparison_table_edit(request, pk):
+    table = get_object_or_404(ComparisonTable, pk=pk, project__owner=request.user, is_archived=False)
+    form = ComparisonTableForm(request.POST or None, instance=table)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Comparison table updated.")
+        return redirect("comparison_table_detail", pk=table.pk)
+    return render(request, "research/form.html", {"form": form, "title": "Edit comparison table"})
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def comparison_table_archive(request, pk):
+    table = get_object_or_404(ComparisonTable, pk=pk, project__owner=request.user, is_archived=False)
+    if request.method == "POST":
+        table.is_archived = True
+        table.save(update_fields=["is_archived", "updated_at"])
+        messages.success(request, "Comparison table archived.")
+        return redirect("project_detail", pk=table.project.pk)
+    return render(
+        request,
+        "research/confirm_archive.html",
+        {"title": "Archive comparison table", "object_name": table.title, "cancel_url": reverse("comparison_table_detail", kwargs={"pk": table.pk})},
+    )
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def comparison_row_archive(request, pk):
+    row = get_object_or_404(ComparisonRow, pk=pk, table__project__owner=request.user, is_archived=False)
+    if request.method == "POST":
+        row.is_archived = True
+        row.save(update_fields=["is_archived", "updated_at"])
+        messages.success(request, "Comparison row archived.")
+        return redirect("comparison_table_detail", pk=row.table.pk)
+    return render(
+        request,
+        "research/confirm_archive.html",
+        {"title": "Archive comparison row", "object_name": row.name, "cancel_url": reverse("comparison_table_detail", kwargs={"pk": row.table.pk})},
+    )
 
 @login_required
 def search(request):
@@ -308,7 +482,10 @@ def search(request):
             Q(project__owner=request.user),
             Q(title__icontains=query)
             | Q(summary_text__icontains=query)
-            | Q(citations__icontains=query),
+            | Q(citation_source__icontains=query)
+            | Q(citation_page__icontains=query)
+            | Q(citation_quote__icontains=query),
+            is_archived=False,
         )
 
         rows = ComparisonRow.objects.filter(
@@ -316,6 +493,8 @@ def search(request):
             Q(name__icontains=query)
             | Q(criteria__icontains=query)
             | Q(notes__icontains=query),
+            is_archived=False,
+            table__is_archived=False,
         )
 
     return render(

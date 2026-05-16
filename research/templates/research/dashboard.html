@@ -9,12 +9,50 @@
   <a href="{% url 'project_create' %}" class="btn btn-primary">New project</a>
 </div>
 
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="card shadow-sm border-0">
+      <div class="card-body">
+        <div class="text-muted small">Projects</div>
+        <div class="h3 fw-bold mb-0">{{ stats.projects }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card shadow-sm border-0">
+      <div class="card-body">
+        <div class="text-muted small">Resources</div>
+        <div class="h3 fw-bold mb-0">{{ stats.resources }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card shadow-sm border-0">
+      <div class="card-body">
+        <div class="text-muted small">Summaries</div>
+        <div class="h3 fw-bold mb-0">{{ stats.summaries }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card shadow-sm border-0">
+      <div class="card-body">
+        <div class="text-muted small">Comparison tables</div>
+        <div class="h3 fw-bold mb-0">{{ stats.tables }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="row">
   {% for project in projects %}
     <div class="col-md-4 mb-3">
-      <div class="card h-100 shadow-sm">
+      <div class="card h-100 shadow-sm border-0">
         <div class="card-body">
-          <h5>{{ project.title }}</h5>
+          <div class="d-flex justify-content-between align-items-start gap-2">
+            <h5 class="mb-1">{{ project.title }}</h5>
+            <span class="badge text-bg-secondary">{{ project.get_status_display }}</span>
+          </div>
           <p class="text-muted">{{ project.description|truncatewords:20 }}</p>
           <a href="{% url 'project_detail' project.pk %}" class="btn btn-sm btn-outline-primary">Open</a>
           <a href="{% url 'project_edit' project.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>
@@ -23,7 +61,15 @@
       </div>
     </div>
   {% empty %}
-    <div class="alert alert-info">No projects yet. Create your first research project.</div>
+    <div class="col-12">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <h5 class="fw-bold mb-1">No projects yet</h5>
+          <p class="text-muted mb-3">Create your first research project to start uploading resources and generating summaries.</p>
+          <a href="{% url 'project_create' %}" class="btn btn-primary">Create a project</a>
+        </div>
+      </div>
+    </div>
   {% endfor %}
 </div>
 

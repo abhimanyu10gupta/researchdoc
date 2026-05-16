@@ -1,12 +1,17 @@
 from django.urls import path
 from django.contrib.auth import views as auth_views
 from . import views
+from .forms import LoginForm
 
 urlpatterns = [
     path("", views.landing, name="landing"),
     path("register/", views.register, name="register"),
 
-    path("login/", auth_views.LoginView.as_view(template_name="registration/login.html"), name="login"),
+    path(
+        "login/",
+        auth_views.LoginView.as_view(template_name="registration/login.html", authentication_form=LoginForm),
+        name="login",
+    ),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
 
     path("dashboard/", views.dashboard, name="dashboard"),
@@ -22,12 +27,16 @@ urlpatterns = [
 
     path("projects/<int:project_pk>/summaries/create/", views.summary_create, name="summary_create"),
     path("summaries/<int:pk>/edit/", views.summary_edit, name="summary_edit"),
+    path("summaries/<int:pk>/archive/", views.summary_archive, name="summary_archive"),
     path("resources/<int:resource_pk>/generate-summary/", views.generate_ai_summary, name="generate_ai_summary"),
 
     path("projects/<int:project_pk>/comparison/create/", views.comparison_table_create, name="comparison_table_create"),
     path("comparison/<int:pk>/", views.comparison_table_detail, name="comparison_table_detail"),
+    path("comparison/<int:pk>/edit/", views.comparison_table_edit, name="comparison_table_edit"),
+    path("comparison/<int:pk>/archive/", views.comparison_table_archive, name="comparison_table_archive"),
     path("comparison/<int:table_pk>/rows/create/", views.comparison_row_create, name="comparison_row_create"),
     path("comparison/rows/<int:pk>/edit/", views.comparison_row_edit, name="comparison_row_edit"),
+    path("comparison/rows/<int:pk>/archive/", views.comparison_row_archive, name="comparison_row_archive"),
 
     path("search/", views.search, name="search"),
 ]
