@@ -29,13 +29,31 @@
       min-width: 220px;
       text-align: center;
     }
+
+    /* Mobile polish */
+    .navbar .navbar-nav .nav-link,
+    .navbar .navbar-nav .btn {
+      white-space: nowrap;
+    }
+    @media (max-width: 576px) {
+      .btn {
+        max-width: 100%;
+      }
+      .table-responsive {
+        border-radius: 12px;
+      }
+    }
   </style>
 </head>
 
 <body class="bg-light">
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
   <div class="container">
-    <a class="navbar-brand fw-bold" href="{% url 'landing' %}">ResearchDoc</a>
+    {% if user.is_authenticated %}
+      <a class="navbar-brand fw-bold" href="{% url 'dashboard' %}">ResearchDoc</a>
+    {% else %}
+      <a class="navbar-brand fw-bold" href="{% url 'landing' %}">ResearchDoc</a>
+    {% endif %}
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMain" aria-controls="navMain" aria-expanded="false" aria-label="Toggle navigation">
       <span class="navbar-toggler-icon"></span>
