@@ -1,4 +1,6 @@
+import json
 import os
+import re
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth import login
@@ -347,6 +349,234 @@ Source text (may be partial):
 ### Responsible AI note
 {warning}
 """
+
+
+def generate_ai_comparison_rows(*, project_title: str, resources: list[dict]) -> dict[int, dict]:
+    """
+    Returns a mapping of resource idx -> {criteria, score, notes}.
+    Uses OpenAI/OpenRouter when configured; otherwise returns a safe fallback.
+    """
+
+    warning = "AI-generated comparisons must be reviewed and verified before academic use."
+
+    openai_key = os.getenv("OPENAI_API_KEY", "").strip()
+    openrouter_key = os.getenv("OPENROUTER_API_KEY", "").strip()
+    model = os.getenv("AI_MODEL", "").strip()
+
+    if openai_key:
+        client = OpenAI(api_key=openai_key)
+        model = model or "gpt-4o-mini"
+    elif openrouter_key:
+        client = OpenAI(api_key=openrouter_key, base_url="https://openrouter.ai/api/v1")
+        model = model or "openai/gpt-4o-mini"
+    else:
+        return {
+            r["idx"]: {
+                "criteria": f"{r.get('resource_type', 'source')} • topic/value: verify from notes/text",
+                "score": 6,
+                "notes": (
+                    "Fallback comparison row (no API key configured).\n\n"
+                    "Strengths: Easy to add to your project; provides a starting point for manual comparison.\n"
+                    "Weaknesses: Generic until you verify details in the original source.\n"
+                    "Citation/usefulness: Record exact quotes and page/section locations before academic use.\n\n"
+                    f"Responsible AI: {warning}"
+                ),
+            }
+            for r in resources
+        }
+
+    # Keep the payload small and demo-friendly.
+    compact_resources = []
+    for r in resources:
+        extracted = (r.get("extracted_text") or "").strip()
+        notes = (r.get("notes") or "").strip()
+        compact_resources.append(
+            {
+                "idx": r["idx"],
+                "title": (r.get("title") or "")[:200],
+                "resource_type": r.get("resource_type") or "",
+                "url": (r.get("url") or "")[:400],
+                "notes": notes[:800],
+                "extracted_text": extracted[:1200],
+            }
+        )
+
+    prompt = f"""You are helping a university student compare research resources inside a project.
+
+Project title: {project_title}
+
+Given the resources below, create ONE comparison row per resource.
+
+Return STRICT JSON only: a JSON array of objects with keys:
+- idx (integer, must match input)
+- criteria (string: method/topic/source type/key value; max 200 chars)
+- score (integer 1-10)
+- notes (string: include strengths, weaknesses, and citation/usefulness comments; include the warning: "{warning}")
+
+Rules:
+- Do NOT invent citations, page numbers, or quotes.
+- If details are missing, say what to verify.
+- Keep notes concise but helpful (3-7 bullet points is fine).
+
+Input resources:
+{json.dumps(compact_resources, ensure_ascii=False)}
+"""
+
+    def parse_model_json(text: str):
+        """
+        OpenRouter/model outputs can include Markdown fences or extra prose.
+        Try multiple candidates until we can parse the JSON we asked for.
+        """
+
+        def extract_fenced_blocks(s: str) -> list[str]:
+            return [m.group(1).strip() for m in re.finditer(r"```(?:json)?\s*([\s\S]*?)```", s or "", re.IGNORECASE)]
+
+        def iter_balanced_substrings(s: str, open_ch: str, close_ch: str):
+            if not s:
+                return
+            n = len(s)
+            for i in range(n):
+                if s[i] != open_ch:
+                    continue
+                depth = 0
+                for j in range(i, n):
+                    ch = s[j]
+                    if ch == open_ch:
+                        depth += 1
+                    elif ch == close_ch:
+                        depth -= 1
+                        if depth == 0:
+                            yield s[i : j + 1].strip()
+                            break
+
+        raw = (text or "").strip()
+        candidates: list[str] = []
+        if raw:
+            candidates.append(raw)
+            candidates.extend(extract_fenced_blocks(raw))
+            candidates.extend(iter_balanced_substrings(raw, "[", "]"))
+            candidates.extend(iter_balanced_substrings(raw, "{", "}"))
+
+        for cand in candidates:
+            if not cand:
+                continue
+            try:
+                parsed = json.loads(cand)
+            except Exception:
+                continue
+
+            # Preferred: JSON array of row objects
+            if isinstance(parsed, list):
+                return parsed
+
+            # Common fallback: JSON object wrapper like {"rows": [...]}
+            if isinstance(parsed, dict):
+                rows = parsed.get("rows") or parsed.get("data") or parsed.get("items")
+                if isinstance(rows, list):
+                    return rows
+
+        raise ValueError("No parseable JSON found in model output")
+
+    try:
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": "You write accurate, cautious comparisons for academic work."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.2,
+        )
+        content = (resp.choices[0].message.content or "").strip()
+        parsed = parse_model_json(content)
+        result: dict[int, dict] = {}
+        if isinstance(parsed, list):
+            for item in parsed:
+                if not isinstance(item, dict):
+                    continue
+                idx = item.get("idx", item.get("id"))
+                if isinstance(idx, str):
+                    idx = idx.strip()
+                    if idx.isdigit():
+                        idx = int(idx)
+                elif isinstance(idx, float):
+                    idx = int(idx)
+                if not isinstance(idx, int):
+                    continue
+                result[idx] = {
+                    "criteria": str(item.get("criteria", ""))[:200],
+                    "score": item.get("score", 6),
+                    "notes": str(item.get("notes", "")),
+                }
+
+        # If parsing gave nothing useful, fall back.
+        if not result:
+            raise ValueError("AI response JSON did not parse into rows")
+        return result
+    except Exception:
+        return {
+            r["idx"]: {
+                "criteria": f"{r.get('resource_type', 'source')} • topic/value: verify from notes/text",
+                "score": 6,
+                "notes": (
+                    "Fallback comparison row (AI call failed).\n\n"
+                    "Strengths: Provides a structured starting point for comparing items.\n"
+                    "Weaknesses: Generic until verified against the original source.\n"
+                    "Citation/usefulness: Add exact quotes and page/section locations manually.\n\n"
+                    f"Responsible AI: {warning}"
+                ),
+            }
+            for r in resources
+        }
+
+
+@login_required
+@require_http_methods(["POST"])
+def generate_ai_comparison_table(request, project_pk):
+    project = get_object_or_404(ResearchProject, pk=project_pk, owner=request.user, is_archived=False)
+    resources_qs = Resource.objects.filter(project=project, is_archived=False).order_by("id")
+    resources = list(resources_qs)
+
+    if len(resources) < 2:
+        messages.error(request, "Add at least two active resources before generating an AI comparison table.")
+        return redirect("project_detail", pk=project.pk)
+
+    payload = [
+        {
+            "idx": r.pk,
+            "title": r.title,
+            "resource_type": r.resource_type,
+            "url": r.url,
+            "notes": r.notes,
+            "extracted_text": r.extracted_text,
+        }
+        for r in resources
+    ]
+
+    ai_rows = generate_ai_comparison_rows(project_title=project.title, resources=payload)
+
+    table = ComparisonTable.objects.create(project=project, title=f"AI Comparison: {project.title}")
+
+    for r in resources:
+        row_data = ai_rows.get(r.pk) or {}
+        criteria = (row_data.get("criteria") or f"{r.resource_type} • topic/value: verify").strip()[:200]
+        notes = (row_data.get("notes") or "").strip()
+        score_val = row_data.get("score", 6)
+        try:
+            score = int(score_val)
+        except Exception:
+            score = 6
+        score = max(1, min(10, score))
+
+        ComparisonRow.objects.create(
+            table=table,
+            name=(r.title or "Resource")[:200],
+            criteria=criteria or "Topic/method/value: verify from source",
+            score=score,
+            notes=notes or "AI comparison notes were unavailable. Please compare manually and add citations.",
+        )
+
+    messages.success(request, "AI comparison table generated.")
+    return redirect("comparison_table_detail", pk=table.pk)
 
 
 @login_required

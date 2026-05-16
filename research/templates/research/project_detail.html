@@ -19,6 +19,12 @@
   <a href="{% url 'resource_create' project.pk %}" class="btn btn-primary">Add resource</a>
   <a href="{% url 'summary_create' project.pk %}" class="btn btn-outline-primary">Create summary</a>
   <a href="{% url 'comparison_table_create' project.pk %}" class="btn btn-outline-primary">Create comparison table</a>
+  {% if resources|length >= 2 %}
+    <form method="post" action="{% url 'generate_ai_comparison_table' project.pk %}" class="d-inline">
+      {% csrf_token %}
+      <button class="btn btn-success">AI Generate Comparison Table</button>
+    </form>
+  {% endif %}
 </div>
 
 <h3>Resources</h3>

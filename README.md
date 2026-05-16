@@ -51,6 +51,7 @@ Demo accounts:
 - **Comparison tables**: create/edit/archive and editable rows (archive per row)
 - **Search**: basic search across projects, resources, summaries, and comparison rows (grouped results)
 - **GenAI summary generation**: optional (uses API key if present; otherwise simulated demo output)
+- **GenAI comparison generation**: optional (creates an AI-generated comparison table when a project has 2+ resources)
 - **Responsible AI warning**: shown on AI-generated summaries
 
 ## Models (overview)
@@ -80,7 +81,9 @@ Archived items (`is_archived=True`) are hidden from dashboard/search and treated
 
 ## GenAI usage (declaration)
 
-ResearchDoc can generate a draft research summary for a resource.
+ResearchDoc can generate:
+- a draft research summary for a resource
+- an AI-generated comparison table for a project (requires 2+ resources)
 
 - **Environment variables**
   - `OPENAI_API_KEY` (preferred) or `OPENROUTER_API_KEY`

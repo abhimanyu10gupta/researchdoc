@@ -13,6 +13,12 @@
   </div>
 </div>
 
+{% if table.title|slice:":14" == "AI Comparison:" %}
+  <div class="alert alert-warning shadow-sm">
+    <strong>AI warning:</strong> AI-generated comparisons must be reviewed and verified before academic use.
+  </div>
+{% endif %}
+
 <table class="table table-bordered bg-white shadow-sm">
   <thead>
     <tr>

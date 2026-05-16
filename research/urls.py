@@ -31,6 +31,11 @@ urlpatterns = [
     path("resources/<int:resource_pk>/generate-summary/", views.generate_ai_summary, name="generate_ai_summary"),
 
     path("projects/<int:project_pk>/comparison/create/", views.comparison_table_create, name="comparison_table_create"),
+    path(
+        "projects/<int:project_pk>/comparison/ai-generate/",
+        views.generate_ai_comparison_table,
+        name="generate_ai_comparison_table",
+    ),
     path("comparison/<int:pk>/", views.comparison_table_detail, name="comparison_table_detail"),
     path("comparison/<int:pk>/edit/", views.comparison_table_edit, name="comparison_table_edit"),
     path("comparison/<int:pk>/archive/", views.comparison_table_archive, name="comparison_table_archive"),
